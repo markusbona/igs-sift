@@ -25,6 +25,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -114,41 +115,100 @@ public class CbirWithSift extends JFrame
 	 * @return a model for the Classifier
 	 */
 	public static Object doLearnDecisionModel(Map<String,Vector<int[]>> dataSet) {
+		Vector<int[]> histoCollection = new Vector<int[]>();
 		
-		Map<String,int[]> model = new HashMap<String, int[]>();
+		double minSupport = 0.1;
+		List<Integer> minimalSupportedItems = new LinkedList<Integer>();
 		
-		
-		//count each VisualWord for each class 
-		for(String className : dataSet.keySet())
-		{
-			int[] totalLHisto = new int[K];
-			for(int[] histo : dataSet.get(className))
-				for(int i=0;i<K;i++) totalLHisto[i]+=histo[i];
-			
-			model.put(className, totalLHisto);
+		//Calculate Support of Visual words over all class
+		double[] support = new double[K];
+		int imageCounter = 0;
+		for(String className : dataSet.keySet()) {
+			histoCollection.addAll(dataSet.get(className));
+		}
+		for(int[] histo : histoCollection) {
+			for(int i=0;i<K;i++) {
+				if(histo[i] > 0) {
+					support[i]++;
+				}
+			}
+			imageCounter++;
 		}
 		
+		List<List<Integer>> frequentItemSets = new LinkedList<List<Integer>>();
 		
-		//set a visualWord to the image class with the most counts 
-		String[] classModel = new String[K];
-		
+		//Normalize Support and find supported items
 		for(int i=0;i<K;i++) {
-			String maxClass = "unknown";
-			int max = Integer.MIN_VALUE;
+			support[i]/=imageCounter;
+			if(support[i]>=minSupport) {
+				minimalSupportedItems.add(i);
+				List<Integer> frequentItem = new LinkedList<Integer>();
+				frequentItem.add(i);
+				frequentItemSets.add(frequentItem);
+			}
+		}
+		
+		int numWords = 10;
+		
+		for (int numberOfWords = 2; numberOfWords < numWords; numberOfWords++) {
+			System.out.println("Finding frequent item sets with " + numberOfWords+" visual words");
 			
-			for(String className : model.keySet())
-			{
-				if(model.get(className)[i] > max) {
-					max = model.get(className)[i];
-					maxClass = className;
+			//Enhance Sets
+			List<List<Integer>> newFrequentItemSets = new LinkedList<List<Integer>>();
+			for(List<Integer> frequentItemSet : frequentItemSets) {
+				for(Integer supportedWord : minimalSupportedItems) {
+					if(!frequentItemSet.contains(supportedWord)) {
+						List<Integer> newFrequentItemSet = copyList(frequentItemSet);
+						if(!contains(newFrequentItemSets, newFrequentItemSet)) {
+							//Calculate Support
+							double s = calculateSupport(newFrequentItemSet, histoCollection);
+							if(s>=minSupport) {
+								newFrequentItemSets.add(newFrequentItemSet);
+							}
+						}
+					}
 				}
 			}
 			
-			classModel[i]=maxClass;
+			frequentItemSets.clear();
+			frequentItemSets.addAll(newFrequentItemSets);
+		}		
+		
+		//Ein Eintrag in frequentItemSets entspricht einem Frequent Item Set. Dieses besteht aus den
+		//Indizes des histogramm arrays welche zusammen ein item set ergeben.
+		return frequentItemSets;
+	}
+	
+	private static double calculateSupport(List<Integer> fis, Vector<int[]> dataSet) {
+		double support = 0;
+		
+		double f = 1/dataSet.size();
+		
+		for(int word : fis) {
+			for(int[] histo : dataSet) {
+				if(histo[word]>0) {
+					support+=f;
+				}
+			}
 		}
 		
-		
-		return classModel;
+		return support;
+	}
+	
+	private static List<Integer> copyList(List<Integer> l) {
+		List<Integer> newList = new LinkedList<Integer>();
+		newList.addAll(l);
+		return newList;
+	}
+	
+	private static boolean contains(List<List<Integer>> collection, List<Integer> query) {
+		for(List<Integer> l : collection) {
+			if(l.containsAll(query) && query.containsAll(l)) {
+				//The same list
+				return true;
+			}
+		}
+		return false;
 	}
 	
 	/**
