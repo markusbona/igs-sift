@@ -8,9 +8,9 @@ public class Histogram {
 	
 	public Histogram(int[] histo) {
 		List<Integer> features = new LinkedList<Integer>();
-		for(int f : histo) {
-			if(f>0) {
-				features.add(f);
+		for(int i=0;i<histo.length;i++) {
+			if(histo[i]>0) {
+				features.add(i);
 			}
 		}
 		

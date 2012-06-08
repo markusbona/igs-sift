@@ -66,7 +66,7 @@ public class CbirWithSift extends JFrame {
 	private static int MIN_CLASS_SIZE = 5;
 
 	// how many images should be read from the input folders
-	private static int readImages = 50;
+	private static int readImages = 10000;
 	// private static int readImages = 10000;
 
 	// number of SIFT iterations: more steps will produce more features
@@ -169,8 +169,8 @@ public class CbirWithSift extends JFrame {
 		List<int[]> histoCollection = new LinkedList<int[]>();
 
 		// Tuning parameter!
-		double minSupport = 0.01;
-		int numFeatures = 10;
+		double minSupport = 0.09;
+		int numFeatures = 6;
 
 		// Calculate Support of Visual words over all class
 		for (String className : dataSet.keySet()) {
@@ -364,7 +364,7 @@ public class CbirWithSift extends JFrame {
 			// slightly increasing
 			// the clusters cohesion
 
-			float alpha = 1.1f;
+			float alpha = 1.5f;
 			if (alpha * shortestDistance > (Float) bestWord.verificationValue) {
 				bestmatch = null;
 			}
