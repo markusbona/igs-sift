@@ -428,8 +428,8 @@ public class CbirWithSift extends JFrame {
 							dx += centeroids.get(c).nearFeature.get(f).descriptor[d];
 						}
 						centeroids.get(c).centroied.descriptor[d] = (float) (dx / pos);
-						centeroids.get(c).verificationValue = distanceLimit[pos];					}
-				}
+					}
+					centeroids.get(c).verificationValue = distanceLimit[pos];					}
 
 				if (!testAfterCenter) {
 					testAfterCenter = true;
