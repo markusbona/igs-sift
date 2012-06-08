@@ -75,18 +75,19 @@ public class CbirWithSift extends JFrame {
 
 	// for testing: delay time for showing images in the GUI
 	private static int wait = 0;
+	private static int waitVerify = 500;
 
 	/**
-	 * 
-	 * REPLACE THIS METHOD
-	 * 
-	 * 
-	 * Classifies a VisualWordHistogram into an Image Class based on the learned
-	 * model
-	 * 
-	 * @param histogram
-	 *            the given VisualWordHistogram
-	 * @return the name of the Image-Class
+	 * Ê* The method doLearnDecisionModel sets those according to the output of
+	 * the nn. Ê
+	 */
+	static List<String> classNames;
+
+	/**
+	 * Ê* Ê* REPLACE THIS METHOD Ê* Ê* Ê* Classifies a VisualWordHistogram into
+	 * an Image Class based on the learned Ê* model Ê* Ê* @param histogram Ê* Ê
+	 * Ê Ê Ê Ê Êthe given VisualWordHistogram Ê* @return the name of the
+	 * Image-Class Ê
 	 */
 	public String doClassifyImageContent(int[] histogram) {
 
@@ -102,12 +103,54 @@ public class CbirWithSift extends JFrame {
 		myMlPerceptron.calculate();
 		double[] output = myMlPerceptron.getOutput();
 
-		if (output[0] <= 0.5d) {
-			return "motorbike";
-		} else {
-			return "airplane";
+		// find biggest
+		double maxOutput = -1;
+		int maxOutputPos = -1;
+		for (int i = 0; i < output.length; i++) {
+			if (maxOutput < output[i]) {
+				maxOutput = output[i];
+				maxOutputPos = i;
+			}
 		}
 
+		System.out.println("NN maxOutput:" + maxOutput + " pos:" + maxOutputPos
+				+ " class:" + classNames.get(maxOutputPos));
+		for (int i = 0; i < output.length; i++)
+			System.out.print(i + ":" + output[i] + " ");
+		System.out.println();
+
+		if (maxOutputPos >= 0 && maxOutput > -1) {
+			return classNames.get(maxOutputPos);
+		} else {
+			return "unknown";
+		}
+
+	}
+
+	private static int[] findMinMax(Collection<Vector<int[]>> data) {
+		int max = Integer.MIN_VALUE;
+		int min = Integer.MAX_VALUE;
+		// find min/max
+		for (Vector<int[]> v : data) {
+			for (int[] array : v) {
+				for (int i = 0; i < array.length; i++) {
+					if (max < array[i])
+						max = array[i];
+					if (min > array[i])
+						min = array[i];
+				}
+			}
+		}
+
+		return new int[] { min, max };
+
+	}
+
+	private static void setClassNames(Set<String> keySet) {
+		classNames = new LinkedList<String>();
+		for (String className : keySet) {
+			classNames.add(className);
+		}
 	}
 
 	/**
@@ -125,53 +168,56 @@ public class CbirWithSift extends JFrame {
 		System.out.println("Learning Decision Model...");
 		List<int[]> histoCollection = new LinkedList<int[]>();
 
-		//Tuning parameter!
+		// Tuning parameter!
 		double minSupport = 0.01;
 		int numFeatures = 10;
-		
+
 		// Calculate Support of Visual words over all class
 		for (String className : dataSet.keySet()) {
 			histoCollection.addAll(dataSet.get(className));
 		}
-		
-		System.out.println("Starting FIS with "+histoCollection.size()+" Histograms");
-		
-		//Anzahl der histogramme
+
+		System.out.println("Starting FIS with " + histoCollection.size()
+				+ " Histograms");
+
+		// Anzahl der histogramme
 		HashMap<Histogram, Integer> histograms = new HashMap<Histogram, Integer>();
-		for(int[] histo : histoCollection) {
+		for (int[] histo : histoCollection) {
 			Histogram h = new Histogram(histo);
-			if(!histograms.containsKey(h)) {
+			if (!histograms.containsKey(h)) {
 				histograms.put(h, 1);
 			} else {
-				histograms.put(h, histograms.get(h)+1);
+				histograms.put(h, histograms.get(h) + 1);
 			}
 		}
-		System.out.println("Found "+histograms.size()+" different Histograms");
-		
+		System.out.println("Found " + histograms.size()
+				+ " different Histograms");
+
 		LinkedHashMap<Histogram, Double> frequencies = new LinkedHashMap<Histogram, Double>();
 		LinkedHashMap<Integer, Double> frequentFeatures = new LinkedHashMap<Integer, Double>();
-		for (Histogram h: histograms.keySet()) {
-			for(int f : h.features) {
-				if(!frequentFeatures.containsKey(f)) {
-					Histogram hf = new Histogram(new int[]{f});
+		for (Histogram h : histograms.keySet()) {
+			for (int f : h.features) {
+				if (!frequentFeatures.containsKey(f)) {
+					Histogram hf = new Histogram(new int[] { f });
 					double support = calculateSupport(histograms, hf);
-					if(support>=minSupport) {
+					if (support >= minSupport) {
 						frequentFeatures.put(f, support);
 						frequencies.put(hf, support);
 					}
 				}
 			}
 		}
-		
-		System.out.println("Found "+frequentFeatures.size()+" Frequent Features");
-		
-		
+
+		System.out.println("Found " + frequentFeatures.size()
+				+ " Frequent Features");
+
 		for (int numberOfFeatures = 1; numberOfFeatures < numFeatures; numberOfFeatures++) {
 			System.out.println();
 			System.out.println("Round " + numberOfFeatures);
 
 			// 4. build new entries from old entries, by adding single words
-			System.out.println(frequencies.size() + " entries. Combining new entries...");
+			System.out.println(frequencies.size()
+					+ " entries. Combining new entries...");
 			LinkedHashSet<Histogram> newFeatureSets = new LinkedHashSet<Histogram>(
 					8192);
 			for (Entry<Histogram, Double> e : frequencies.entrySet())
@@ -179,96 +225,92 @@ public class CbirWithSift extends JFrame {
 					// only add words that aren't already in the word set
 					if (!e.getKey().contains(feature)) {
 						List<Integer> features = new ArrayList<Integer>();
-						for(int i=0;i<e.getKey().features.length;i++) features.add(e.getKey().features[i]);
+						for (int i = 0; i < e.getKey().features.length; i++)
+							features.add(e.getKey().features[i]);
 						features.add(feature);
 
 						newFeatureSets.add(new Histogram(features));
 					}
 
 			// 5. remove sets with insufficient support
-			System.out.println("Filtering " + newFeatureSets.size() + " entries...");
+			System.out.println("Filtering " + newFeatureSets.size()
+					+ " entries...");
 			frequencies.clear();
 			for (Histogram features : newFeatureSets) {
 				double support = calculateSupport(histograms, features);
 				if (support >= minSupport)
 					frequencies.put(features, support);
 			}
-		}		
+		}
 
 		System.out.println();
 		System.out.println("Found " + frequencies.size() + " entries");
 		System.out.println();
-		
+
 		// NN (ohne frequent itemset)
-		Set<String> className = dataSet.keySet();
-		Collection<Vector<int[]>> dataValues = dataSet.values();
-		int size = dataSet.get(className.toArray()[0]).get(0).length;
+		System.out.println("Initialising Neural Network ...");
+		// set classNames
+		setClassNames(dataSet.keySet());
+		// normalize data minMax[0] == min value, minMax[1] == max value
+		int[] minMax = findMinMax(dataSet.values());
 
 		// create training set (logical XOR function)
+		System.out.println("Build test data ...");
 		TrainingSet<SupervisedTrainingElement> trainingSet = new TrainingSet<SupervisedTrainingElement>(
-				size, 1);
+				K, classNames.size());
 
 		int classNum = 0;
-		for (Vector<int[]> v : dataValues) {
+		for (Vector<int[]> v : dataSet.values()) {
 			for (int[] data : v) {
-				// convert to double[]
+				// convert to double[] and normalize
 				double[] dData = new double[data.length];
 				for (int i = 0; i < data.length; i++) {
-					dData[i] = data[i];
+					dData[i] = (data[i] - minMax[0])
+							/ ((double) minMax[1] - minMax[0]);
+					// value must be within 0 and 1
+					if (dData[i] < 0 || dData[i] > 1) {
+						System.err
+								.println("nn data must be within 0 to 1, but is "
+										+ dData[i]);
+					}
 				}
+				// create Trainingset
+				double[] output = new double[classNames.size()];
+				for (int i = 0; i < output.length; i++)
+					if (i == classNum)
+						output[i] = 1;
+					else
+						output[i] = 0;
 				trainingSet.addElement(new SupervisedTrainingElement(dData,
-						new double[] { classNum }));
+						output));
 			}
 
 			classNum++;
 		}
 
 		// create multi layer perceptron
+		System.out.println("learn...");
 		MultiLayerPerceptron nnet = new MultiLayerPerceptron(
-				TransferFunctionType.TANH, size, 1);
+				TransferFunctionType.TANH, K, K / 10, classNames.size());
 		nnet.learn(trainingSet);
 
+		System.out.println("learning done");
 		return nnet;
 	}
 
-	private static double calculateSupport(HashMap<Histogram, Integer> all, Histogram h) {
+	private static double calculateSupport(HashMap<Histogram, Integer> all,
+			Histogram h) {
 		double support = 0.0;
 
 		double f = 1.0 / all.size();
 
 		for (Entry<Histogram, Integer> query : all.entrySet()) {
-			if(query.getKey().containsAll(h)) {
-				support += query.getValue()*f;
+			if (query.getKey().containsAll(h)) {
+				support += query.getValue() * f;
 			}
 		}
 
 		return support;
-	}
-
-	private static List<Integer> copyList(List<Integer> l) {
-		List<Integer> newList = new LinkedList<Integer>();
-		newList.addAll(l);
-		return newList;
-	}
-	
-	private static int[] buildKey(List<Integer> set) {
-		int[] key = new int[set.size()];
-		for(int i=0;i<key.length;i++){
-			key[i] = set.get(i);
-		}
-		Arrays.sort(key);
-		return key;
-	}
-
-	private static boolean contains(List<List<Integer>> collection,
-			List<Integer> query) {
-		for (List<Integer> l : collection) {
-			if (l.containsAll(query) && query.containsAll(l)) {
-				// The same list
-				return true;
-			}
-		}
-		return false;
 	}
 
 	/**
@@ -296,8 +338,6 @@ public class CbirWithSift extends JFrame {
 		VisualWord bestWord = null;
 		// Distance to best cluster so far
 		float shortestDistance = Float.MAX_VALUE;
-		// Helper variable, to know how long it takes to find the best cluster
-		int clusterUpdate = 0;
 
 		for (int i = 0; i < bagofwords.size(); i++) {
 			VisualWord word = bagofwords.get(i);
@@ -307,8 +347,6 @@ public class CbirWithSift extends JFrame {
 				bestmatch = i;
 				shortestDistance = distance;
 				bestWord = word;
-
-				clusterUpdate++;
 			}
 		}
 
@@ -318,23 +356,6 @@ public class CbirWithSift extends JFrame {
 		 */
 		// If a cluster has been found
 		if (bestWord != null) {
-//			System.out.println("Found best Cluster in " + clusterUpdate + " moves.");
-
-			// Variante 1: Q-75
-
-			// the @{link VisualWord.verficationValue} is the Q-75 distance
-			// within the
-			// cluster. If the distance of this feature is shorter than 75 % of
-			// all
-			// cluster members, it really is assigned to this cluster
-
-			// erase the best match, if it does not fit the quality criteria
-//			if (shortestDistance >= (Float) bestWord.verificationValue) {
-//				bestmatch = null;
-//			}
-
-			// Variante 2: Inner cohesion
-
 			// the @{link VisualWord.verficationValue} is the current average
 			// distance
 			// from cluster members to its centroid. The quality criteria is
@@ -448,7 +469,8 @@ public class CbirWithSift extends JFrame {
 						}
 						centeroids.get(c).centroied.descriptor[d] = (float) (dx / pos);
 					}
-					centeroids.get(c).verificationValue = distanceLimit[pos];					}
+					centeroids.get(c).verificationValue = distanceLimit[pos];
+				}
 
 				if (!testAfterCenter) {
 					testAfterCenter = true;
@@ -557,7 +579,7 @@ public class CbirWithSift extends JFrame {
 
 						cur_image = i;
 						repaint();
-						Thread.sleep(wait);
+						Thread.sleep(waitVerify);
 					}
 
 					long endTime = System.currentTimeMillis();
