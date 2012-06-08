@@ -125,7 +125,9 @@ public class CbirWithSift extends JFrame {
 		System.out.println("Learning Decision Model...");
 		List<int[]> histoCollection = new LinkedList<int[]>();
 
-		double minSupport = 0.05;
+		//Tuning parameter!
+		double minSupport = 0.01;
+		int numFeatures = 10;
 		
 		// Calculate Support of Visual words over all class
 		for (String className : dataSet.keySet()) {
@@ -163,7 +165,6 @@ public class CbirWithSift extends JFrame {
 		
 		System.out.println("Found "+frequentFeatures.size()+" Frequent Features");
 		
-		int numFeatures = 10;
 		
 		for (int numberOfFeatures = 1; numberOfFeatures < numFeatures; numberOfFeatures++) {
 			System.out.println();

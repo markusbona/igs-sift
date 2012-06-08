@@ -33,7 +33,13 @@ public class Histogram {
 	
 	public boolean equals(Object o) {
 		if(o instanceof Histogram) {
-			return (((Histogram)o).features.equals(this.features));
+			Histogram h = (Histogram)o;
+			for(int i=0;i<this.features.length;i++) {
+				if(h.features[i]!=this.features[i]) {
+					return false;
+				}
+			}
+			return true;
 		}
 		return false;
 	}
