@@ -169,7 +169,7 @@ public class CbirWithSift extends JFrame {
 		List<int[]> histoCollection = new LinkedList<int[]>();
 
 		// Tuning parameter!
-		double minSupport = 0.09;
+		double minSupport = 0.05;
 		int numFeatures = 6;
 
 		// Calculate Support of Visual words over all class
@@ -194,15 +194,20 @@ public class CbirWithSift extends JFrame {
 				+ " different Histograms");
 
 		LinkedHashMap<Histogram, Double> frequencies = new LinkedHashMap<Histogram, Double>();
+		LinkedHashMap<Histogram, Double> infrequencies = new LinkedHashMap<Histogram, Double>();
 		LinkedHashMap<Integer, Double> frequentFeatures = new LinkedHashMap<Integer, Double>();
+		LinkedHashMap<Integer, Double> infrequentFeatures = new LinkedHashMap<Integer, Double>();
 		for (Histogram h : histograms.keySet()) {
 			for (int f : h.features) {
-				if (!frequentFeatures.containsKey(f)) {
+				if (!frequentFeatures.containsKey(f) && 
+					!infrequentFeatures.containsKey(f)) {
 					Histogram hf = new Histogram(new int[] { f });
 					double support = calculateSupport(histograms, hf);
 					if (support >= minSupport) {
 						frequentFeatures.put(f, support);
 						frequencies.put(hf, support);
+					} else {
+						infrequentFeatures.put(f, support);
 					}
 				}
 			}
@@ -211,9 +216,9 @@ public class CbirWithSift extends JFrame {
 		System.out.println("Found " + frequentFeatures.size()
 				+ " Frequent Features");
 
-		for (int numberOfFeatures = 1; numberOfFeatures < numFeatures; numberOfFeatures++) {
+		for (int numberOfFeatures = 2; numberOfFeatures <= numFeatures; numberOfFeatures++) {
 			System.out.println();
-			System.out.println("Round " + numberOfFeatures);
+			System.out.println("Round " + (numberOfFeatures-1)+" with "+numberOfFeatures+" Features");
 
 			// 4. build new entries from old entries, by adding single words
 			System.out.println(frequencies.size()
@@ -237,9 +242,14 @@ public class CbirWithSift extends JFrame {
 					+ " entries...");
 			frequencies.clear();
 			for (Histogram features : newFeatureSets) {
-				double support = calculateSupport(histograms, features);
-				if (support >= minSupport)
-					frequencies.put(features, support);
+				if(!containsSubSet(infrequencies, features)) {
+					double support = calculateSupport(histograms, features);
+					if (support >= minSupport)
+						frequencies.put(features, support);
+					else {
+						infrequencies.put(features, support);
+					}
+				}
 			}
 		}
 
@@ -298,6 +308,17 @@ public class CbirWithSift extends JFrame {
 		return nnet;
 	}
 
+	private static boolean containsSubSet(HashMap<Histogram, Double> all,
+			Histogram h) {
+		for (Entry<Histogram, Double> subSet : all.entrySet()) {
+			if (h.containsAll(subSet.getKey())) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+	
 	private static double calculateSupport(HashMap<Histogram, Integer> all,
 			Histogram h) {
 		double support = 0.0;
@@ -355,6 +376,7 @@ public class CbirWithSift extends JFrame {
 		 * only, thus it is not within the loop)
 		 */
 		// If a cluster has been found
+		float alpha = 1.1f;
 		if (bestWord != null) {
 			// the @{link VisualWord.verficationValue} is the current average
 			// distance
@@ -364,7 +386,6 @@ public class CbirWithSift extends JFrame {
 			// slightly increasing
 			// the clusters cohesion
 
-			float alpha = 1.5f;
 			if (alpha * shortestDistance > (Float) bestWord.verificationValue) {
 				bestmatch = null;
 			}
