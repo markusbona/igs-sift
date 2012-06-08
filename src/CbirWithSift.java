@@ -22,12 +22,16 @@ import java.awt.Polygon;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 import java.util.Vector;
@@ -62,7 +66,7 @@ public class CbirWithSift extends JFrame {
 	private static int MIN_CLASS_SIZE = 5;
 
 	// how many images should be read from the input folders
-	private static int readImages = 10;
+	private static int readImages = 50;
 	// private static int readImages = 10000;
 
 	// number of SIFT iterations: more steps will produce more features
@@ -118,73 +122,82 @@ public class CbirWithSift extends JFrame {
 	 * @return a model for the Classifier
 	 */
 	public static Object doLearnDecisionModel(Map<String, Vector<int[]>> dataSet) {
+		System.out.println("Learning Decision Model...");
+		List<int[]> histoCollection = new LinkedList<int[]>();
 
-		// FrequentItemSet
-		Vector<int[]> histoCollection = new Vector<int[]>();
-
-		double minSupport = 0.1;
-		List<Integer> minimalSupportedItems = new LinkedList<Integer>();
-
+		double minSupport = 0.05;
+		
 		// Calculate Support of Visual words over all class
-		double[] support = new double[K];
-		int imageCounter = 0;
 		for (String className : dataSet.keySet()) {
 			histoCollection.addAll(dataSet.get(className));
 		}
-		for (int[] histo : histoCollection) {
-			for (int i = 0; i < K; i++) {
-				if (histo[i] > 0) {
-					support[i]++;
-				}
-			}
-			imageCounter++;
-		}
-
-		List<List<Integer>> frequentItemSets = new LinkedList<List<Integer>>();
-
-		// Normalize Support and find supported items
-		for (int i = 0; i < K; i++) {
-			support[i] /= imageCounter;
-			if (support[i] >= minSupport) {
-				minimalSupportedItems.add(i);
-				List<Integer> frequentItem = new LinkedList<Integer>();
-				frequentItem.add(i);
-				frequentItemSets.add(frequentItem);
+		
+		System.out.println("Starting FIS with "+histoCollection.size()+" Histograms");
+		
+		//Anzahl der histogramme
+		HashMap<Histogram, Integer> histograms = new HashMap<Histogram, Integer>();
+		for(int[] histo : histoCollection) {
+			Histogram h = new Histogram(histo);
+			if(!histograms.containsKey(h)) {
+				histograms.put(h, 1);
+			} else {
+				histograms.put(h, histograms.get(h)+1);
 			}
 		}
-
-		int numWords = 10;
-
-		for (int numberOfWords = 2; numberOfWords < numWords; numberOfWords++) {
-			System.out.println("Finding frequent item sets with "
-					+ numberOfWords + " visual words");
-
-			// Enhance Sets
-			List<List<Integer>> newFrequentItemSets = new LinkedList<List<Integer>>();
-			for (List<Integer> frequentItemSet : frequentItemSets) {
-				for (Integer supportedWord : minimalSupportedItems) {
-					if (!frequentItemSet.contains(supportedWord)) {
-						List<Integer> newFrequentItemSet = copyList(frequentItemSet);
-						if (!contains(newFrequentItemSets, newFrequentItemSet)) {
-							// Calculate Support
-							double s = calculateSupport(newFrequentItemSet,
-									histoCollection);
-							if (s >= minSupport) {
-								newFrequentItemSets.add(newFrequentItemSet);
-							}
-						}
+		System.out.println("Found "+histograms.size()+" different Histograms");
+		
+		LinkedHashMap<Histogram, Double> frequencies = new LinkedHashMap<Histogram, Double>();
+		LinkedHashMap<Integer, Double> frequentFeatures = new LinkedHashMap<Integer, Double>();
+		for (Histogram h: histograms.keySet()) {
+			for(int f : h.features) {
+				if(!frequentFeatures.containsKey(f)) {
+					Histogram hf = new Histogram(new int[]{f});
+					double support = calculateSupport(histograms, hf);
+					if(support>=minSupport) {
+						frequentFeatures.put(f, support);
+						frequencies.put(hf, support);
 					}
 				}
 			}
-
-			frequentItemSets.clear();
-			frequentItemSets.addAll(newFrequentItemSets);
 		}
+		
+		System.out.println("Found "+frequentFeatures.size()+" Frequent Features");
+		
+		int numFeatures = 10;
+		
+		for (int numberOfFeatures = 1; numberOfFeatures < numFeatures; numberOfFeatures++) {
+			System.out.println();
+			System.out.println("Round " + numberOfFeatures);
 
-		// Ein Eintrag in frequentItemSets entspricht einem Frequent Item Set.
-		// Dieses besteht aus den
-		// Indizes des histogramm arrays welche zusammen ein item set ergeben.
+			// 4. build new entries from old entries, by adding single words
+			System.out.println(frequencies.size() + " entries. Combining new entries...");
+			LinkedHashSet<Histogram> newFeatureSets = new LinkedHashSet<Histogram>(
+					8192);
+			for (Entry<Histogram, Double> e : frequencies.entrySet())
+				for (int feature : frequentFeatures.keySet())
+					// only add words that aren't already in the word set
+					if (!e.getKey().contains(feature)) {
+						List<Integer> features = new ArrayList<Integer>();
+						for(int i=0;i<e.getKey().features.length;i++) features.add(e.getKey().features[i]);
+						features.add(feature);
 
+						newFeatureSets.add(new Histogram(features));
+					}
+
+			// 5. remove sets with insufficient support
+			System.out.println("Filtering " + newFeatureSets.size() + " entries...");
+			frequencies.clear();
+			for (Histogram features : newFeatureSets) {
+				double support = calculateSupport(histograms, features);
+				if (support >= minSupport)
+					frequencies.put(features, support);
+			}
+		}		
+
+		System.out.println();
+		System.out.println("Found " + frequencies.size() + " entries");
+		System.out.println();
+		
 		// NN (ohne frequent itemset)
 		Set<String> className = dataSet.keySet();
 		Collection<Vector<int[]>> dataValues = dataSet.values();
@@ -217,17 +230,14 @@ public class CbirWithSift extends JFrame {
 		return nnet;
 	}
 
-	private static double calculateSupport(List<Integer> fis,
-			Vector<int[]> dataSet) {
-		double support = 0;
+	private static double calculateSupport(HashMap<Histogram, Integer> all, Histogram h) {
+		double support = 0.0;
 
-		double f = 1 / dataSet.size();
+		double f = 1.0 / all.size();
 
-		for (int word : fis) {
-			for (int[] histo : dataSet) {
-				if (histo[word] > 0) {
-					support += f;
-				}
+		for (Entry<Histogram, Integer> query : all.entrySet()) {
+			if(query.getKey().containsAll(h)) {
+				support += query.getValue()*f;
 			}
 		}
 
@@ -238,6 +248,15 @@ public class CbirWithSift extends JFrame {
 		List<Integer> newList = new LinkedList<Integer>();
 		newList.addAll(l);
 		return newList;
+	}
+	
+	private static int[] buildKey(List<Integer> set) {
+		int[] key = new int[set.size()];
+		for(int i=0;i<key.length;i++){
+			key[i] = set.get(i);
+		}
+		Arrays.sort(key);
+		return key;
 	}
 
 	private static boolean contains(List<List<Integer>> collection,
@@ -298,8 +317,7 @@ public class CbirWithSift extends JFrame {
 		 */
 		// If a cluster has been found
 		if (bestWord != null) {
-			System.out.println("Found best Cluster in " + clusterUpdate
-					+ " moves.");
+//			System.out.println("Found best Cluster in " + clusterUpdate + " moves.");
 
 			// Variante 1: Q-75
 
@@ -310,9 +328,9 @@ public class CbirWithSift extends JFrame {
 			// cluster members, it really is assigned to this cluster
 
 			// erase the best match, if it does not fit the quality criteria
-			if (shortestDistance >= (Float) bestWord.verificationValue) {
-				bestmatch = null;
-			}
+//			if (shortestDistance >= (Float) bestWord.verificationValue) {
+//				bestmatch = null;
+//			}
 
 			// Variante 2: Inner cohesion
 
