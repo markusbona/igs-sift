@@ -169,8 +169,8 @@ public class CbirWithSift extends JFrame {
 		List<int[]> histoCollection = new LinkedList<int[]>();
 
 		// Tuning parameter!
-		double minSupport = 0.05;
-		int numFeatures = 6;
+		double minSupport = 0.2;
+		int numFeatures = 4;
 
 		// Calculate Support of Visual words over all class
 		for (String className : dataSet.keySet()) {
@@ -327,7 +327,8 @@ public class CbirWithSift extends JFrame {
 
 		for (Entry<Histogram, Integer> query : all.entrySet()) {
 			if (query.getKey().containsAll(h)) {
-				support += query.getValue() * f;
+				support += f;
+//				support += query.getValue() * f;
 			}
 		}
 
