@@ -24,15 +24,24 @@ import java.awt.Polygon;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Array;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Vector;
 
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;
+
+import org.neuroph.core.learning.SupervisedTrainingElement;
+import org.neuroph.core.learning.TrainingSet;
+import org.neuroph.nnet.MultiLayerPerceptron;
+import org.neuroph.util.TransferFunctionType;
 
 import mpi.cbg.fly.Feature;
 import mpi.cbg.fly.Filter;
@@ -78,31 +87,23 @@ public class CbirWithSift extends JFrame
 	 * @return the name of the Image-Class
 	 */
 	public String doClassifyImageContent(int[] histogram){
-		//get the model from the global variable
-		String[] model = (String[])decisionModel;
 		
-		Map<String,Integer> classCounter = new HashMap<String,Integer>();
+		MultiLayerPerceptron myMlPerceptron = (MultiLayerPerceptron) decisionModel;
 		
-		//look up the class for each VisualWord in the model
-		for(int i=0;i<K;i++) {
-			String className = model[i];
-			if(!classCounter.containsKey(className)) classCounter.put(className,new Integer(0));
-			classCounter.put(className, classCounter.get(className)+histogram[i]);
+		//convert to double[]
+		double[] dhistogram = new double[histogram.length];
+		for (int i=0;i<histogram.length;i++) { dhistogram[i] = histogram[i]; }
+		
+		myMlPerceptron.setInput(dhistogram);
+		myMlPerceptron.calculate();
+		double[] output = myMlPerceptron.getOutput();
+		
+		if (output[0] <= 0.5d) {
+			return "motorbike";
+		} else {
+			return "airplane";
 		}
 		
-		String maxClass = "unknown";
-		int max = Integer.MIN_VALUE;
-		
-		//return the image class with the most VisualWords
-		for(String className : classCounter.keySet())
-		{
-			if(classCounter.get(className) > max) {
-				max = classCounter.get(className);
-				maxClass = className;
-			}
-		}
-		
-		return maxClass;
 	}
 	
 	/**
@@ -115,6 +116,8 @@ public class CbirWithSift extends JFrame
 	 * @return a model for the Classifier
 	 */
 	public static Object doLearnDecisionModel(Map<String,Vector<int[]>> dataSet) {
+		
+		//FrequentItemSet	
 		Vector<int[]> histoCollection = new Vector<int[]>();
 		
 		double minSupport = 0.1;
@@ -176,7 +179,32 @@ public class CbirWithSift extends JFrame
 		
 		//Ein Eintrag in frequentItemSets entspricht einem Frequent Item Set. Dieses besteht aus den
 		//Indizes des histogramm arrays welche zusammen ein item set ergeben.
-		return frequentItemSets;
+		
+		//NN (ohne frequent itemset)
+		Set<String> className = dataSet.keySet();
+		Collection<Vector<int[]>> dataValues = dataSet.values();
+		int size = dataSet.get(className.toArray()[0]).get(0).length;
+		
+		// create training set (logical XOR function)
+		TrainingSet<SupervisedTrainingElement> trainingSet = new TrainingSet<SupervisedTrainingElement>(size, 1);
+		
+		int classNum = 0;
+		for (Vector<int[]> v : dataValues) {
+			for (int[] data : v) {
+				//convert to double[]
+				double[] dData = new double[data.length];
+				for (int i=0;i<data.length;i++) { dData[i] = data[i]; }
+				trainingSet.addElement(new SupervisedTrainingElement(dData, new double[] { classNum }));
+			}
+				
+			classNum++;
+		}
+		
+		// create multi layer perceptron
+		MultiLayerPerceptron nnet = new MultiLayerPerceptron(TransferFunctionType.TANH, size, 1);
+		nnet.learn(trainingSet);
+		
+		return nnet;
 	}
 	
 	private static double calculateSupport(List<Integer> fis, Vector<int[]> dataSet) {
@@ -300,6 +328,9 @@ public class CbirWithSift extends JFrame
 	  {
 	
 		System.out.println("Start clustering with: "+_points.length+" pkt to "+K+" classes");  
+		
+		
+		
 		return null;
 	  }
 	
