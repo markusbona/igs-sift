@@ -5,10 +5,6 @@
 	<classpathentry kind="lib" path="lib/imagescience.jar"/>
 	<classpathentry kind="lib" path="lib/Jama-1.0.2.jar"/>
 	<classpathentry kind="lib" path="lib/Java_SIFT.jar"/>
-	<classpathentry kind="lib" path="lib/neuroph-2.6/neuroph-2.6.jar" sourcepath="lib/neuroph-2.6/sources">
-		<attributes>
-			<attribute name="javadoc_location" value="file:/C:/Users/Markus/git/igs-sift/lib/neuroph-2.6/doc/javadoc"/>
-		</attributes>
-	</classpathentry>
+	<classpathentry kind="lib" path="lib/neuroph-2.6/neuroph-2.6.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

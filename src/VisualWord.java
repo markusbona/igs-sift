@@ -1,3 +1,5 @@
+import java.util.List;
+
 import mpi.cbg.fly.Feature;
 
 
@@ -10,5 +12,9 @@ public class VisualWord {
 	public int	classID;
 	
 	//a placeholder for a class verification value
-	public Object verificationValue;	
+	public Object verificationValue;		
+	
+	//list of near features to a centeroid
+	public List<Feature> nearFeature;
+
 }
