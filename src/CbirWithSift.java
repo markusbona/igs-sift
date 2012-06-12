@@ -276,12 +276,9 @@ public class CbirWithSift extends JFrame {
 	 * a k-mean clustering implementation for SIFT-Features: (float[] :
 	 * Feature.descriptor)
 	 * 
-	 * @param _points
-	 *            a list of all found features in the training set
-	 * @param K
-	 *            how many classes (visual words)
-	 * @param minCount
-	 *            the minimum number of members in each class
+	 * @param _points a list of all found features in the training set
+	 * @param K how many classes (visual words)
+	 * @param minCount the minimum number of members in each class
 	 * @return the centroides of the k-mean = visual words list
 	 */
 	public static List<VisualWord> doClusteringVisualWords(
@@ -289,7 +286,8 @@ public class CbirWithSift extends JFrame {
 		System.out.println("Start clustering with: " + _points.length
 				+ " pkt to " + K + " classes");
 
-		List<VisualWord> centeroids = new LinkedList<VisualWord>();
+		VisualWord[] centeroids = new VisualWord[K];
+		float percent = 0.75f;
 
 		for (int i = 0; i < K; i++) {
 			// take a random feature as start point
@@ -297,44 +295,47 @@ public class CbirWithSift extends JFrame {
 			int pos = rnd.nextInt(_points.length);
 			VisualWord tmp = new VisualWord();
 			tmp.centroied = _points[pos];
-			centeroids.add(tmp);
+			centeroids[i] = tmp;
 		}
 
-		//
+		
+		
+		// cluster search
 		int newRandPos = 1;
-		boolean testAfterCenter = false;
+		boolean testAfterCenter = false;		
 		while (newRandPos > 0) {
+			// prepare centroids for new list of nearest points
 			for (int c = 0; c < K; c++)
-				centeroids.get(c).nearFeature = new LinkedList<Feature>();
+				centeroids[c].nearFeature = new ArrayList<Feature>();
 
-			// Allocate each point to the nearest cluster center
+			// allocate each point to the nearest cluster center
 			for (int i = 0; i < _points.length; i++) {
 				double distance = 0.0;
 				int centerNr = 0;
 
 				for (int j = 0; j < K; j++) {
 					double d = _points[i]
-							.descriptorDistance(centeroids.get(j).centroied);
+							.descriptorDistance(centeroids[j].centroied);
 
 					if (j == 0 || d < distance) {
 						distance = d;
 						centerNr = j;
 					}
 				}
-				centeroids.get(centerNr).nearFeature.add(_points[i]);
+				centeroids[centerNr].nearFeature.add(_points[i]);
 			}
 
-			//
-			int nrOfDescElement = centeroids.get(0).centroied.descriptor.length;
+			// set centeroids with less than minCount point to a new random position
+			int nrOfDescElement = centeroids[0].centroied.descriptor.length;
 			newRandPos = 0;
 			for (int c = 0; c < K; c++) {
-				int nrOfFeatures = centeroids.get(c).nearFeature.size();
+				int nrOfFeatures = centeroids[c].nearFeature.size();
 				if (nrOfFeatures < minCount) {
 					newRandPos++;
 					// set to a new random position
 					Random rnd = new Random();
 					int pos = rnd.nextInt(_points.length);
-					centeroids.get(c).centroied = _points[pos];
+					centeroids[c].centroied = _points[pos];
 				}
 			}
 
@@ -342,38 +343,42 @@ public class CbirWithSift extends JFrame {
 
 			// move centeroid into the center
 			if (newRandPos == 0) {
-				float percent = 0.75f;
 
 				for (int c = 0; c < K; c++) {
-					int nrOfFeatures = centeroids.get(c).nearFeature.size();
+					int nrOfFeatures = centeroids[c].nearFeature.size();
 					float[] distanceLimit = new float[nrOfFeatures];
 
 					for (int i = 0; i < nrOfFeatures; i++) {
-						distanceLimit[i] = centeroids.get(c).nearFeature
+						distanceLimit[i] = centeroids[c].nearFeature
 								.get(i)
-								.descriptorDistance(centeroids.get(c).centroied);
+								.descriptorDistance(centeroids[c].centroied);
 					}
 					Arrays.sort(distanceLimit);
-					int pos = (int) Math.ceil(distanceLimit.length * percent);
+					
+					int pos = (int) Math.ceil(nrOfFeatures * percent) -1;
 
 					for (int d = 0; d < nrOfDescElement; d++) {
 						double dx = 0.0;
 						for (int f = 0; f < pos; f++) {
-							dx += centeroids.get(c).nearFeature.get(f).descriptor[d];
+							dx += centeroids[c].nearFeature.get(f).descriptor[d];
 						}
-						centeroids.get(c).centroied.descriptor[d] = (float) (dx / pos);
+						centeroids[c].centroied.descriptor[d] = (float) (dx / pos);
 					}
-					centeroids.get(c).verificationValue = distanceLimit[pos];
+
+					centeroids[c].verificationValue = distanceLimit[pos];					
 				}
 
 				if (!testAfterCenter) {
 					testAfterCenter = true;
 					newRandPos++;
 				}
+			} else {
+				testAfterCenter = false;
 			}
 		}
-
-		return centeroids;
+		
+		return Arrays.asList(centeroids);
+		
 	}
 
 	/* Do not change anything from here */
