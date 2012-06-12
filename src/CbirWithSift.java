@@ -80,6 +80,7 @@ public class CbirWithSift extends JFrame {
 	 * the nn. Ê
 	 */
 	static List<String> classNames;
+	static final int maxTrainData = 50;
 
 	/**
 	 * Ê* Ê* REPLACE THIS METHOD Ê* Ê* Ê* Classifies a VisualWordHistogram into
@@ -154,6 +155,7 @@ public class CbirWithSift extends JFrame {
 
 		int classNum = 0;
 		for (Vector<int[]> v : dataSet.values()) {
+			int trainedDataPerClass = 0;
 			for (int[] data : v) {
 				// convert to double[] and normalize
 				double[] dData = new double[data.length];
@@ -167,6 +169,11 @@ public class CbirWithSift extends JFrame {
 				double[] output = new double[classNames.size()];
 				for (int i=0;i<output.length;i++) if(i==classNum) output[i] = 1; else output[i] = 0;  
 				trainingSet.addElement(new SupervisedTrainingElement(dData, output));
+				trainedDataPerClass++;
+				if (trainedDataPerClass >= maxTrainData) { 
+					System.out.println("skipping after " + trainedDataPerClass + " sets of data");
+					break; 
+				}
 			}
 			classNum++;
 		}
