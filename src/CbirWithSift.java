@@ -67,15 +67,13 @@ public class CbirWithSift extends JFrame {
 
 	// how many images should be read from the input folders
 	private static int readImages = 10000;
-	// private static int readImages = 10000;
 
 	// number of SIFT iterations: more steps will produce more features
 	// default = 4
-	private static int steps = 5;
+	private static int steps = 6;
 
 	// for testing: delay time for showing images in the GUI
 	private static int wait = 0;
-	private static int waitVerify = 500;
 
 	/**
 	 * Ê* The method doLearnDecisionModel sets those according to the output of
@@ -103,54 +101,31 @@ public class CbirWithSift extends JFrame {
 		myMlPerceptron.calculate();
 		double[] output = myMlPerceptron.getOutput();
 
-		// find biggest
+		//find biggest
 		double maxOutput = -1;
 		int maxOutputPos = -1;
-		for (int i = 0; i < output.length; i++) {
+		for (int i=0;i<output.length;i++) {
 			if (maxOutput < output[i]) {
 				maxOutput = output[i];
 				maxOutputPos = i;
 			}
 		}
 
-		System.out.println("NN maxOutput:" + maxOutput + " pos:" + maxOutputPos
-				+ " class:" + classNames.get(maxOutputPos));
-		for (int i = 0; i < output.length; i++)
-			System.out.print(i + ":" + output[i] + " ");
-		System.out.println();
+		
+//		debug output
+//		System.out.println("NN maxOutput:"+maxOutput + " pos:" + maxOutputPos + " class:"+classNames.get(maxOutputPos));
 
+//		for (int i=0;i<output.length;i++) System.out.print(i+":"+output[i]+" ");
+
+//		System.out.println();
+
+		
 		if (maxOutputPos >= 0 && maxOutput > -1) {
 			return classNames.get(maxOutputPos);
 		} else {
 			return "unknown";
 		}
 
-	}
-
-	private static int[] findMinMax(Collection<Vector<int[]>> data) {
-		int max = Integer.MIN_VALUE;
-		int min = Integer.MAX_VALUE;
-		// find min/max
-		for (Vector<int[]> v : data) {
-			for (int[] array : v) {
-				for (int i = 0; i < array.length; i++) {
-					if (max < array[i])
-						max = array[i];
-					if (min > array[i])
-						min = array[i];
-				}
-			}
-		}
-
-		return new int[] { min, max };
-
-	}
-
-	private static void setClassNames(Set<String> keySet) {
-		classNames = new LinkedList<String>();
-		for (String className : keySet) {
-			classNames.add(className);
-		}
 	}
 
 	/**
@@ -165,103 +140,11 @@ public class CbirWithSift extends JFrame {
 	 * @return a model for the Classifier
 	 */
 	public static Object doLearnDecisionModel(Map<String, Vector<int[]>> dataSet) {
-		System.out.println("Learning Decision Model...");
-		List<int[]> histoCollection = new LinkedList<int[]>();
-
-		// Tuning parameter!
-		double minSupport = 0.2;
-		int numFeatures = 4;
-
-		// Calculate Support of Visual words over all class
-		for (String className : dataSet.keySet()) {
-			histoCollection.addAll(dataSet.get(className));
-		}
-
-		System.out.println("Starting FIS with " + histoCollection.size()
-				+ " Histograms");
-
-		// Anzahl der histogramme
-		HashMap<Histogram, Integer> histograms = new HashMap<Histogram, Integer>();
-		for (int[] histo : histoCollection) {
-			Histogram h = new Histogram(histo);
-			if (!histograms.containsKey(h)) {
-				histograms.put(h, 1);
-			} else {
-				histograms.put(h, histograms.get(h) + 1);
-			}
-		}
-		System.out.println("Found " + histograms.size()
-				+ " different Histograms");
-
-		LinkedHashMap<Histogram, Double> frequencies = new LinkedHashMap<Histogram, Double>();
-		LinkedHashMap<Histogram, Double> infrequencies = new LinkedHashMap<Histogram, Double>();
-		LinkedHashMap<Integer, Double> frequentFeatures = new LinkedHashMap<Integer, Double>();
-		LinkedHashMap<Integer, Double> infrequentFeatures = new LinkedHashMap<Integer, Double>();
-		for (Histogram h : histograms.keySet()) {
-			for (int f : h.features) {
-				if (!frequentFeatures.containsKey(f) && 
-					!infrequentFeatures.containsKey(f)) {
-					Histogram hf = new Histogram(new int[] { f });
-					double support = calculateSupport(histograms, hf);
-					if (support >= minSupport) {
-						frequentFeatures.put(f, support);
-						frequencies.put(hf, support);
-					} else {
-						infrequentFeatures.put(f, support);
-					}
-				}
-			}
-		}
-
-		System.out.println("Found " + frequentFeatures.size()
-				+ " Frequent Features");
-
-		for (int numberOfFeatures = 2; numberOfFeatures <= numFeatures; numberOfFeatures++) {
-			System.out.println();
-			System.out.println("Round " + (numberOfFeatures-1)+" with "+numberOfFeatures+" Features");
-
-			// 4. build new entries from old entries, by adding single words
-			System.out.println(frequencies.size()
-					+ " entries. Combining new entries...");
-			LinkedHashSet<Histogram> newFeatureSets = new LinkedHashSet<Histogram>(
-					8192);
-			for (Entry<Histogram, Double> e : frequencies.entrySet())
-				for (int feature : frequentFeatures.keySet())
-					// only add words that aren't already in the word set
-					if (!e.getKey().contains(feature)) {
-						List<Integer> features = new ArrayList<Integer>();
-						for (int i = 0; i < e.getKey().features.length; i++)
-							features.add(e.getKey().features[i]);
-						features.add(feature);
-
-						newFeatureSets.add(new Histogram(features));
-					}
-
-			// 5. remove sets with insufficient support
-			System.out.println("Filtering " + newFeatureSets.size()
-					+ " entries...");
-			frequencies.clear();
-			for (Histogram features : newFeatureSets) {
-				if(!containsSubSet(infrequencies, features)) {
-					double support = calculateSupport(histograms, features);
-					if (support >= minSupport)
-						frequencies.put(features, support);
-					else {
-						infrequencies.put(features, support);
-					}
-				}
-			}
-		}
-
-		System.out.println();
-		System.out.println("Found " + frequencies.size() + " entries");
-		System.out.println();
-
 		// NN (ohne frequent itemset)
 		System.out.println("Initialising Neural Network ...");
-		// set classNames
+		//set classNames
 		setClassNames(dataSet.keySet());
-		// normalize data minMax[0] == min value, minMax[1] == max value
+		//normalize data minMax[0] == min value, minMax[1] == max value
 		int[] minMax = findMinMax(dataSet.values());
 
 		// create training set (logical XOR function)
@@ -275,64 +158,53 @@ public class CbirWithSift extends JFrame {
 				// convert to double[] and normalize
 				double[] dData = new double[data.length];
 				for (int i = 0; i < data.length; i++) {
-					dData[i] = (data[i] - minMax[0])
-							/ ((double) minMax[1] - minMax[0]);
-					// value must be within 0 and 1
-					if (dData[i] < 0 || dData[i] > 1) {
-						System.err
-								.println("nn data must be within 0 to 1, but is "
-										+ dData[i]);
-					}
-				}
-				// create Trainingset
-				double[] output = new double[classNames.size()];
-				for (int i = 0; i < output.length; i++)
-					if (i == classNum)
-						output[i] = 1;
-					else
-						output[i] = 0;
-				trainingSet.addElement(new SupervisedTrainingElement(dData,
-						output));
-			}
+					dData[i] = (data[i] - minMax[0]) / ((double) minMax[1]-minMax[0]);
 
+					// value must be within 0 and 1
+					if (dData[i] < 0 || dData[i] > 1) { System.err.println("nn data must be within 0 to 1, but is " + dData[i]); }
+				}
+				//create Trainingset
+				double[] output = new double[classNames.size()];
+				for (int i=0;i<output.length;i++) if(i==classNum) output[i] = 1; else output[i] = 0;  
+				trainingSet.addElement(new SupervisedTrainingElement(dData, output));
+			}
 			classNum++;
 		}
 
 		// create multi layer perceptron
 		System.out.println("learn...");
+		System.out.println("create NN with 2 Layer: " + K + " " + classNames.size());
 		MultiLayerPerceptron nnet = new MultiLayerPerceptron(
-				TransferFunctionType.TANH, K, K / 10, classNames.size());
+				TransferFunctionType.TANH, K, classNames.size());
 		nnet.learn(trainingSet);
 
 		System.out.println("learning done");
 		return nnet;
 	}
-
-	private static boolean containsSubSet(HashMap<Histogram, Double> all,
-			Histogram h) {
-		for (Entry<Histogram, Double> subSet : all.entrySet()) {
-			if (h.containsAll(subSet.getKey())) {
-				return true;
-			}
-		}
-
-		return false;
-	}
 	
-	private static double calculateSupport(HashMap<Histogram, Integer> all,
-			Histogram h) {
-		double support = 0.0;
-
-		double f = 1.0 / all.size();
-
-		for (Entry<Histogram, Integer> query : all.entrySet()) {
-			if (query.getKey().containsAll(h)) {
-				support += f;
-//				support += query.getValue() * f;
+	private static int[] findMinMax(Collection<Vector<int[]>> data) {
+		int max = Integer.MIN_VALUE;
+		int min = Integer.MAX_VALUE;
+		// find min/max
+		for (Vector<int[]> v : data) {
+			for (int[] array : v) {
+				for (int i=0;i<array.length;i++) {
+					if (max < array[i]) max = array[i];
+					if (min > array[i]) min = array[i];
+				}
 			}
 		}
+		
+		return new int[] {min, max};
+		
+	}
 
-		return support;
+
+	private static void setClassNames(Set<String> keySet) {
+		classNames = new LinkedList<String>();
+		for (String className : keySet) {
+			classNames.add(className);
+		}
 	}
 
 	/**
@@ -601,7 +473,7 @@ public class CbirWithSift extends JFrame {
 
 						cur_image = i;
 						repaint();
-						Thread.sleep(waitVerify);
+						Thread.sleep(wait);
 					}
 
 					long endTime = System.currentTimeMillis();
@@ -765,13 +637,13 @@ public class CbirWithSift extends JFrame {
 				(float) Math.sqrt(initial_sigma * initial_sigma - 0.25));
 
 		long start_time = System.currentTimeMillis();
-		System.out.print("processing SIFT ...");
+//		System.out.print("processing SIFT ...");
 
 		sift.init(fa, steps, initial_sigma, min_size, max_size);
 		_features = sift.run(max_size);
 
-		System.out.println(" took " + (System.currentTimeMillis() - start_time)
-				+ "ms to find \t" + _features.size() + " features");
+//		System.out.println(" took " + (System.currentTimeMillis() - start_time)
+//				+ "ms to find \t" + _features.size() + " features");
 
 		return _features;
 	}
