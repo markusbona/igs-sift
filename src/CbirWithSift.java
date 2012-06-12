@@ -80,7 +80,10 @@ public class CbirWithSift extends JFrame {
 	 * the nn. Ê
 	 */
 	static List<String> classNames;
-	static final int maxTrainData = 50;
+	/** 
+	 * Learn time in min.
+	 */
+	static final int trainingTime = 1;
 
 	/**
 	 * Ê* Ê* REPLACE THIS METHOD Ê* Ê* Ê* Classifies a VisualWordHistogram into
@@ -169,11 +172,7 @@ public class CbirWithSift extends JFrame {
 				double[] output = new double[classNames.size()];
 				for (int i=0;i<output.length;i++) if(i==classNum) output[i] = 1; else output[i] = 0;  
 				trainingSet.addElement(new SupervisedTrainingElement(dData, output));
-				trainedDataPerClass++;
-				if (trainedDataPerClass >= maxTrainData) { 
-					System.out.println("skipping after " + trainedDataPerClass + " sets of data");
-					break; 
-				}
+
 			}
 			classNum++;
 		}
@@ -183,7 +182,13 @@ public class CbirWithSift extends JFrame {
 		System.out.println("create NN with 2 Layer: " + K + " " + classNames.size());
 		MultiLayerPerceptron nnet = new MultiLayerPerceptron(
 				TransferFunctionType.TANH, K, classNames.size());
-		nnet.learn(trainingSet);
+		nnet.learnInNewThread(trainingSet);
+		try {
+			Thread.sleep(1000 * 60 * trainingTime);
+		} catch (InterruptedException e) {
+			System.err.println(e.getMessage());
+		}
+		nnet.stopLearning();
 
 		System.out.println("learning done");
 		return nnet;
